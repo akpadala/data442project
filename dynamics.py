@@ -31,7 +31,7 @@ def system_dynamics(t, y, active_basin_idx):
     
     # Water Hammer Equation: L * dQ/dt + R * Q = Delta_H
     # dQ/dt = (Delta_H - R * Q) / L
-    dQdt = (delta_h - (RESISTANCE * Q)) / INERTANCE
+    dQdt = (RHO * G * delta_h - RESISTANCE * Q) / INERTANCE
     
     # Mass Balance: dh/dt = -Q/Area
     dhl_dt = -Q / LOCK_AREA

@@ -228,7 +228,6 @@ def plot_pid_comparison(save=False):
     Shows overshoot/oscillation vs smooth equalization.
     """
     from scipy.integrate import solve_ivp
-    from dynamics import ode_wsb_drain_1
     from parameters import LOCK_H_UPPER, BASIN_3_H_INIT, A_VALVE_MAX, VALVE_OPEN_TIME
 
     pid = PIDController(Kp=0.008, Ki=0.0003, Kd=0.15, T_target=1200.0)
