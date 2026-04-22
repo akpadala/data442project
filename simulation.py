@@ -1,66 +1,64 @@
+"""
+simulation.py — FSM integration loop
+"""
 import numpy as np
 from scipy.integrate import solve_ivp
-import dynamics
-import parameters
+from parameters import (
+    LOCK_H_UPPER, BASIN_1_H_INIT, BASIN_2_H_INIT, BASIN_3_H_INIT,
+    EPSILON, DT_MAX
+)
+from dynamics import STATE_NAMES, PHASE_CONFIG, H_sea, system_dynamics
 
-def run_lock_cycle():
-    # Initial State: [h_lock, h_b3, h_b2, h_b1, Q]
-    y0 = [
-        parameters.LOCK_H_UPPER, 
-        parameters.BASIN_3_H_INIT, 
-        parameters.BASIN_2_H_INIT, 
-        parameters.BASIN_1_H_INIT, 
-        0.0
-    ]
-    
-    t_total = np.array([])
-    x_total = np.empty((5, 0))
-    log = []
-    
+def run_lock_cycle(cd_override=None, valve_time_override=None):
+    import parameters as P
+    _cd = P.CD; _vt = P.VALVE_OPEN_TIME
+    if cd_override is not None:        P.CD = cd_override
+    if valve_time_override is not None: P.VALVE_OPEN_TIME = valve_time_override
+
+    y0 = [LOCK_H_UPPER, BASIN_3_H_INIT, BASIN_2_H_INIT, BASIN_1_H_INIT, 0.0]
+    t_all, x_all, log = [], [], []
     current_time = 0.0
-    # Map stages 1-4 to basin indices (3, 2, 1) and (0 for sea)
-    stages = [
-        (3, dynamics.WSB_DRAIN_1), 
-        (2, dynamics.WSB_DRAIN_2), 
-        (1, dynamics.WSB_DRAIN_3), 
-        (0, dynamics.FINAL_DRAIN)
-    ]
-    
-    for basin_idx, name in stages:
-        t_start = current_time
-        
-        # Define event: stop when delta_h < EPSILON
-        def event_equalize(t, y):
-            target = dynamics.H_sea(t) if basin_idx == 0 else y[basin_idx]
-            return (y[0] - target) - parameters.EPSILON
-        
-        event_equalize.terminal = True
-        
-        # Integration
-        sol = solve_ivp(
-            fun=lambda t, y: dynamics.system_dynamics(t, y, basin_idx),
-            t_span=(t_start, t_start + 3600), # 1 hour max per stage
-            y0=y0,
-            events=event_equalize,
-            method='RK45',
-            max_step=parameters.DT_MAX
-        )
-        
-        # Concatenate results
-        t_total = np.concatenate([t_total, sol.t])
-        x_total = np.hstack([x_total, sol.y])
-        
-        # Log event
-        log.append((name, t_start, sol.t[-1]))
-        
-        # Prepare next iteration: maintain levels, reset Flow (Q) to 0
-        current_time = sol.t[-1]
-        y0 = sol.y[:, -1]
-        y0[4] = 0.0 # Reset Flow for next stage
-        
-    return t_total, x_total, log
 
-if __name__ == "__main__":
-    # Test run
+    for phase_idx, (name, (target_idx, _)) in enumerate(zip(STATE_NAMES, PHASE_CONFIG)):
+        t_entry = current_time
+
+        def make_event(tidx):
+            def event(t, y):
+                h_target = H_sea(t) if tidx == -1 else y[tidx]
+                return (y[0] - h_target) - EPSILON
+            event.terminal  = True
+            event.direction = -1
+            return event
+
+        sol = solve_ivp(
+            fun=lambda t, y, pi=phase_idx, te=t_entry: system_dynamics(t, y, pi, te),
+            t_span=(current_time, current_time + 3600),
+            y0=y0,
+            method='RK45',
+            max_step=DT_MAX,
+            events=make_event(target_idx),
+        )
+
+        t_all.append(sol.t)
+        x_all.append(sol.y)
+        log.append((name, t_entry, sol.t[-1]))
+        current_time = sol.t[-1]
+        y0 = list(sol.y[:, -1])
+        y0[4] = 0.0
+
+    P.CD = _cd; P.VALVE_OPEN_TIME = _vt
+    return np.concatenate(t_all), np.hstack(x_all), log
+
+
+if __name__ == '__main__':
+    from parameters import BASIN_1_H_INIT, BASIN_2_H_INIT, BASIN_3_H_INIT
     t, x, log = run_lock_cycle()
-    print(f"Simulation complete. Total time: {t[-1]/60:.2f} minutes.")
+    print(f"Total time: {t[-1]/60:.1f} min\n")
+    for name, ti, to in log:
+        print(f"  {name:<38} {ti/60:5.1f} → {to/60:5.1f} min  ({(to-ti)/60:.1f} min)")
+    print(f"\nPeak Q:    {x[4].max():.1f} m³/s")
+    print(f"Final H_L: {x[0,-1]:.2f} m")
+    print(f"\nFinal basin levels:")
+    print(f"  H_B3={x[1,-1]:.2f}m (was {BASIN_3_H_INIT}m)")
+    print(f"  H_B2={x[2,-1]:.2f}m (was {BASIN_2_H_INIT}m)")
+    print(f"  H_B1={x[3,-1]:.2f}m (was {BASIN_1_H_INIT}m)")

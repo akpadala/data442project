@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panama Canal — Lock Cycle Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --water-deep: #0e4d6e;
+    --water-mid:  #1a7fa0;
+    --water-light:#3ab5d4;
+    --water-foam: #7dd4ec;
+    --concrete:   #8a8680;
+    --concrete-dark: #5a5650;
+    --basin3: #2ecc71;
+    --basin2: #f39c12;
+    --basin1: #e74c3c;
+    --sea:    #0891b2;
+    --bg:     #0d1117;
+    --panel:  #161b22;
+    --border: #30363d;
+    --text:   #e6edf3;
+    --muted:  #8b949e;
+    --accent: #3ab5d4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 24px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    max-width: 1100px;
+  }
+
+  .canvas-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .canvas-panel canvas {
+    width: 100%;
+    border-radius: 4px;
+    display: block;
+  }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* State indicator */
+  .state-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    background: #1a2a1a;
+    color: var(--basin3);
+    border: 1px solid var(--basin3);
+    transition: all 0.3s;
+  }
+
+  /* Level bars */
+  .level-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .level-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    width: 48px;
+    color: var(--muted);
+  }
+  .level-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #1e242c;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .level-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.1s linear;
+  }
+  .level-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    width: 40px;
+    text-align: right;
+    color: var(--text);
+  }
+
+  /* Controls */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .control-label span:last-child {
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+
+  /* Buttons */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  button {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #1e242c;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button:hover { background: #262e38; border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  button.primary:hover { background: #5bc8e0; }
+
+  /* Chart */
+  #chart-canvas {
+    width: 100%;
+    margin-top: 8px;
+    border-radius: 4px;
+  }
+
+  /* Flow indicator */
+  .flow-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .flow-arrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--water-light);
+    transition: opacity 0.3s;
+  }
+  .flow-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .timer-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--accent);
+    margin: 4px 0;
+  }
+
+  .recovery-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--basin3);
+    margin: 4px 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>PANAMA CANAL — LOCK CYCLE SIMULATOR</h1>
+<p class="subtitle">Neopanamax lock + water saving basins · hybrid ODE/FSM model</p>
+
+<div class="layout">
+  <!-- Main canvas -->
+  <div class="canvas-panel">
+    <canvas id="main" width="760" height="360"></canvas>
+    <canvas id="chart-canvas" width="760" height="130"></canvas>
+  </div>
+
+  <!-- Side panel -->
+  <div class="side-panel">
+
+    <!-- State -->
+    <div class="card">
+      <div class="card-title">FSM State</div>
+      <div class="state-badge" id="state-badge">WSB DRAIN 1</div>
+      <div class="flow-indicator">
+        <span class="flow-arrow" id="flow-arrow">→→→</span>
+        <span class="flow-val" id="flow-val">Q = 0 m³/s</span>
+      </div>
+      <div class="timer-display" id="timer">00:00</div>
+      <div style="font-size:11px;color:var(--muted)">elapsed simulation time</div>
+    </div>
+
+    <!-- Water levels -->
+    <div class="card">
+      <div class="card-title">Water Levels</div>
+      <div class="level-row">
+        <span class="level-label" style="color:#3ab5d4">Lock</span>
+        <div class="level-bar-bg"><div class="level-bar-fill" id="bar-lock" style="background:#3ab5d4;width:100%"></div></div>
+        <span class="level-val" id="val-lock">26.0m</span>
+      </div>
+      <div class="level-row">
+        <span class="level-label" style="color:var(--basin3)">B3</span>
+        <div class="level-bar-bg"><div class="level-bar-fill" id="bar-b3" style="background:var(--basin3);width:69%"></div></div>
+        <span class="level-val" id="val-b3">18.0m</span>
+      </div>
+      <div class="level-row">
+        <span class="level-label" style="color:var(--basin2)">B2</span>
+        <div class="level-bar-bg"><div class="level-bar-fill" id="bar-b2" style="background:var(--basin2);width:38%"></div></div>
+        <span class="level-val" id="val-b2">10.0m</span>
+      </div>
+      <div class="level-row">
+        <span class="level-label" style="color:var(--basin1)">B1</span>
+        <div class="level-bar-bg"><div class="level-bar-fill" id="bar-b1" style="background:var(--basin1);width:15%"></div></div>
+        <span class="level-val" id="val-b1">4.0m</span>
+      </div>
+      <div class="level-row">
+        <span class="level-label" style="color:var(--sea)">Sea</span>
+        <div class="level-bar-bg"><div class="level-bar-fill" id="bar-sea" style="background:var(--sea);width:12%"></div></div>
+        <span class="level-val" id="val-sea">0.0m</span>
+      </div>
+    </div>
+
+    <!-- Water recovery -->
+    <div class="card">
+      <div class="card-title">Water Recovery</div>
+      <div class="recovery-display" id="recovery-pct">0.0%</div>
+      <div style="font-size:11px;color:var(--muted)">target: ~60% (ACP spec)</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-title">Parameters</div>
+      <div class="control-row">
+        <div class="control-label"><span>Cd (discharge coeff)</span><span id="cd-val">0.70</span></div>
+        <input type="range" id="cd-slider" min="0.4" max="1.0" step="0.01" value="0.70">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Valve open time (s)</span><span id="vt-val">240</span></div>
+        <input type="range" id="vt-slider" min="60" max="600" step="10" value="240">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Sim speed</span><span id="sp-val">10×</span></div>
+        <input type="range" id="sp-slider" min="1" max="60" step="1" value="10">
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="btn-start">▶ START</button>
+        <button id="btn-reset">↺ RESET</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Physical parameters ───────────────────────────────────────────────────────
+const G          = 9.81;
+const RHO        = 1000;
+const LOCK_H     = 26.0;
+const LOCK_AREA  = 427 * 55;
+const BASIN_AREA = 427 * 70;
+const CD_DEFAULT = 0.70;
+const A_MAX      = Math.PI * (7/2)**2;
+const INERTANCE  = RHO * 300 / A_MAX;
+const RESISTANCE = (RHO * 0.02 * 300) / (2 * 7 * A_MAX**2);
+
+// Tidal
+const TIDE_AMP   = 3.0;
+const TIDE_W     = 2 * Math.PI / (6 * 3600);
+
+// Simulation state
+let state = {
+  hL: LOCK_H, hB3: 18, hB2: 10, hB1: 4, Q: 0,
+  t: 0, phase: 0, running: false, done: false,
+  tEntry: 0, dH0: LOCK_H - 18,
+  history: { t: [], hL: [], hB3: [], hB2: [], hB1: [], Q: [] }
+};
+
+// Parameters (mutable)
+let Cd = 0.70, valveTime = 240, simSpeed = 10;
+
+const PHASES = ['WSB DRAIN 1', 'WSB DRAIN 2', 'WSB DRAIN 3', 'FINAL DRAIN'];
+const PHASE_COLORS = ['#2ecc71','#f39c12','#e74c3c','#0891b2'];
+const EPSILON = 0.05;
+
+// ── ODE step (Euler with small dt) ───────────────────────────────────────────
+function step(dt) {
+  const { hL, hB3, hB2, hB1, Q, t, phase, tEntry } = state;
+
+  // Target level for current phase
+  const hSea = TIDE_AMP * Math.sin(TIDE_W * t);
+  const targets = [hB3, hB2, hB1, hSea];
+  const hTarget = targets[phase];
+
+  // Valve area ramp
+  const elapsed = t - tEntry;
+  const Av = A_MAX * Math.min(elapsed / valveTime, 1.0);
+
+  // Head difference (clamp to 0)
+  const dH = Math.max(hL - hTarget, 0);
+
+  // Water hammer ODE
+  const dQdt = (RHO * G * dH * Cd - RESISTANCE * Q) / INERTANCE;
+  const newQ = Math.max(Q + dQdt * dt, 0);
+
+  // Level ODEs
+  const newHL  = hL  - newQ * dt / LOCK_AREA;
+  const newHB3 = phase === 0 ? hB3 + newQ * dt / BASIN_AREA : hB3;
+  const newHB2 = phase === 1 ? hB2 + newQ * dt / BASIN_AREA : hB2;
+  const newHB1 = phase === 2 ? hB1 + newQ * dt / BASIN_AREA : hB1;
+
+  state.hL  = Math.max(newHL, 0);
+  state.hB3 = newHB3;
+  state.hB2 = newHB2;
+  state.hB1 = newHB1;
+  state.Q   = newQ;
+  state.t  += dt;
+
+  // Check transition
+  const delta = Math.abs(state.hL - hTarget);
+  if (delta < EPSILON) {
+    if (phase < 3) {
+      state.phase++;
+      state.tEntry = state.t;
+      state.Q = 0;
+    } else {
+      state.running = false;
+      state.done = true;
+    }
+  }
+
+  // Record history (every ~5s sim time)
+  if (state.history.t.length === 0 ||
+      state.t - state.history.t[state.history.t.length-1] >= 5) {
+    state.history.t.push(state.t);
+    state.history.hL.push(state.hL);
+    state.history.hB3.push(state.hB3);
+    state.history.hB2.push(state.hB2);
+    state.history.hB1.push(state.hB1);
+    state.history.Q.push(state.Q);
+  }
+}
+
+// ── Canvas drawing ────────────────────────────────────────────────────────────
+const mainCanvas = document.getElementById('main');
+const ctx = mainCanvas.getContext('2d');
+const W = 760, H = 360;
+
+function drawMain() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0a0e14';
+  ctx.fillRect(0, 0, W, H);
+
+  const maxH = 28;
+  const scaleY = (H - 60) / maxH;
+  const baseY = H - 30;
+
+  // Helper: draw water body
+  function drawWater(x, w, waterH, color, label, labelColor) {
+    const wallH = maxH * scaleY;
+    const wallTop = baseY - wallH;
+
+    // Concrete walls
+    ctx.fillStyle = '#3a3630';
+    ctx.fillRect(x, wallTop, 6, wallH + 10);
+    ctx.fillRect(x + w - 6, wallTop, 6, wallH + 10);
+    ctx.fillRect(x, baseY, w, 10); // floor
+
+    // Water fill
+    const wh = Math.max(waterH, 0) * scaleY;
+    const wy = baseY - wh;
+
+    // Gradient for water depth
+    const grad = ctx.createLinearGradient(x+6, wy, x+6, baseY);
+    grad.addColorStop(0, color + 'cc');
+    grad.addColorStop(1, color + '44');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x + 6, wy, w - 12, wh);
+
+    // Foam line
+    ctx.fillStyle = color + 'ff';
+    ctx.fillRect(x + 6, wy, w - 12, 3);
+
+    // Animated ripple
+    const rippleY = wy + 8;
+    ctx.strokeStyle = color + '88';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const rOff = (state.t * 0.5) % (w - 24);
+    for (let rx = x + 6; rx < x + w - 12; rx += 20) {
+      ctx.moveTo(rx + rOff % 20, rippleY);
+      ctx.quadraticCurveTo(rx + rOff % 20 + 5, rippleY - 3, rx + rOff % 20 + 10, rippleY);
+    }
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = labelColor || '#ffffff';
+    ctx.font = 'bold 10px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + w/2, wallTop - 6);
+
+    // Height text
+    ctx.fillStyle = '#aaa';
+    ctx.font = '9px Space Mono, monospace';
+    ctx.fillText(waterH.toFixed(1) + 'm', x + w/2, wallTop - 18);
+  }
+
+  // Draw flow arrow between active pair
+  function drawArrow(x1, x2, y, color, q) {
+    if (q < 10) return;
+    const alpha = Math.min(q / 2000, 1);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = -(state.t * 2 % 14);
+    ctx.beginPath();
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x2, y);
+    ctx.stroke();
+    // Arrowhead
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(x2 - 10, y - 6);
+    ctx.lineTo(x2, y);
+    ctx.lineTo(x2 - 10, y + 6);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Layout: lock (center), basins (right), sea (left)
+  const lockX   = 270, lockW = 160;
+  const b3X     = 460, bW   = 80;
+  const b2X     = 550, b1X  = 640;
+  const seaX    = 40,  seaW = 100;
+
+  const hSea = TIDE_AMP * Math.sin(TIDE_W * state.t);
+
+  drawWater(seaX,  seaW, Math.max(hSea + 3, 0), '#0891b2', 'SEA', '#7dd4ec');
+  drawWater(lockX, lockW, state.hL,  '#1a7fa0', 'LOCK',  '#7dd4ec');
+  drawWater(b3X, bW, state.hB3, '#2ecc71', 'B3', '#2ecc71');
+  drawWater(b2X, bW, state.hB2, '#f39c12', 'B2', '#f39c12');
+  drawWater(b1X, bW, state.hB1, '#e74c3c', 'B1', '#e74c3c');
+
+  // Draw active flow arrow
+  const arrowY = baseY - 60;
+  const phaseArrows = [
+    [lockX + lockW, b3X, '#2ecc71'],
+    [lockX + lockW, b2X, '#f39c12'],
+    [lockX + lockW, b1X, '#e74c3c'],
+    [seaX + seaW,   lockX, '#0891b2'],
+  ];
+  if (state.phase < 4) {
+    const [ax1, ax2, ac] = phaseArrows[state.phase];
+    if (state.phase === 3) {
+      drawArrow(ax1, ax2, arrowY, ac, state.Q);
+    } else {
+      drawArrow(ax1, ax2, arrowY, ac, state.Q);
+    }
+  }
+
+  // Ship silhouette in lock
+  const shipW = 120, shipH = 18;
+  const shipX = lockX + (lockW - shipW) / 2;
+  const shipWaterLevel = baseY - Math.max(state.hL, 0) * scaleY;
+  const shipY = shipWaterLevel - shipH + 4;
+  ctx.fillStyle = '#555050';
+  ctx.beginPath();
+  ctx.moveTo(shipX, shipY + shipH);
+  ctx.lineTo(shipX + 10, shipY);
+  ctx.lineTo(shipX + shipW - 10, shipY);
+  ctx.lineTo(shipX + shipW, shipY + shipH);
+  ctx.closePath();
+  ctx.fill();
+  // Ship superstructure
+  ctx.fillStyle = '#666060';
+  ctx.fillRect(shipX + 30, shipY - 10, 30, 10);
+  ctx.fillRect(shipX + 65, shipY - 16, 15, 16);
+
+  // Phase label
+  ctx.fillStyle = PHASE_COLORS[state.phase] || '#888';
+  ctx.font = 'bold 11px Space Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('PHASE: ' + (PHASES[state.phase] || 'COMPLETE'), 10, 20);
+
+  // Time
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.fillText('t = ' + formatTime(state.t), 10, 36);
+
+  // Done overlay
+  if (state.done) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#2ecc71';
+    ctx.font = 'bold 20px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('CYCLE COMPLETE', W/2, H/2 - 10);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '12px Space Mono, monospace';
+    ctx.fillText('Press RESET to run again', W/2, H/2 + 16);
+  }
+}
+
+// ── Chart drawing ─────────────────────────────────────────────────────────────
+const chartCanvas = document.getElementById('chart-canvas');
+const cctx = chartCanvas.getContext('2d');
+const CW = 760, CH = 130;
+
+function drawChart() {
+  cctx.clearRect(0, 0, CW, CH);
+  cctx.fillStyle = '#0d1117';
+  cctx.fillRect(0, 0, CW, CH);
+
+  const hist = state.history;
+  if (hist.t.length < 2) return;
+
+  const pad = { l: 40, r: 10, t: 10, b: 20 };
+  const pw = CW - pad.l - pad.r;
+  const ph = CH - pad.t - pad.b;
+
+  const tMax = Math.max(...hist.t, 1);
+  const hMax = 28;
+
+  function toX(t) { return pad.l + (t / tMax) * pw; }
+  function toY(h) { return pad.t + ph - (h / hMax) * ph; }
+
+  // Grid
+  cctx.strokeStyle = '#1e242c';
+  cctx.lineWidth = 1;
+  for (let h = 0; h <= 26; h += 13) {
+    cctx.beginPath();
+    cctx.moveTo(pad.l, toY(h));
+    cctx.lineTo(pad.l + pw, toY(h));
+    cctx.stroke();
+    cctx.fillStyle = '#444';
+    cctx.font = '9px Space Mono, monospace';
+    cctx.textAlign = 'right';
+    cctx.fillText(h + 'm', pad.l - 4, toY(h) + 3);
+  }
+
+  // Lines
+  const series = [
+    { key: 'hL',  color: '#3ab5d4' },
+    { key: 'hB3', color: '#2ecc71' },
+    { key: 'hB2', color: '#f39c12' },
+    { key: 'hB1', color: '#e74c3c' },
+  ];
+
+  series.forEach(({ key, color }) => {
+    cctx.strokeStyle = color;
+    cctx.lineWidth = 1.5;
+    cctx.beginPath();
+    hist.t.forEach((t, i) => {
+      const x = toX(t), y = toY(hist[key][i]);
+      i === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
+    });
+    cctx.stroke();
+  });
+
+  // X axis label
+  cctx.fillStyle = '#444';
+  cctx.font = '9px Space Mono, monospace';
+  cctx.textAlign = 'center';
+  cctx.fillText('time (s)', pad.l + pw/2, CH - 4);
+}
+
+// ── UI updates ────────────────────────────────────────────────────────────────
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+function updateUI() {
+  const maxH = 26;
+  document.getElementById('bar-lock').style.width = (state.hL / maxH * 100) + '%';
+  document.getElementById('bar-b3').style.width   = (state.hB3 / maxH * 100) + '%';
+  document.getElementById('bar-b2').style.width   = (state.hB2 / maxH * 100) + '%';
+  document.getElementById('bar-b1').style.width   = (state.hB1 / maxH * 100) + '%';
+  const hSea = TIDE_AMP * Math.sin(TIDE_W * state.t);
+  document.getElementById('bar-sea').style.width  = (Math.max(hSea+3,0) / maxH * 100) + '%';
+
+  document.getElementById('val-lock').textContent = state.hL.toFixed(1) + 'm';
+  document.getElementById('val-b3').textContent   = state.hB3.toFixed(1) + 'm';
+  document.getElementById('val-b2').textContent   = state.hB2.toFixed(1) + 'm';
+  document.getElementById('val-b1').textContent   = state.hB1.toFixed(1) + 'm';
+  document.getElementById('val-sea').textContent  = hSea.toFixed(1) + 'm';
+
+  document.getElementById('timer').textContent = formatTime(state.t);
+  document.getElementById('flow-val').textContent = 'Q = ' + Math.round(state.Q) + ' m³/s';
+
+  const badge = document.getElementById('state-badge');
+  badge.textContent = PHASES[state.phase] || 'COMPLETE';
+  badge.style.color = PHASE_COLORS[state.phase] || '#888';
+  badge.style.borderColor = PHASE_COLORS[state.phase] || '#888';
+
+  const flowArrow = document.getElementById('flow-arrow');
+  const flowIntensity = Math.min(state.Q / 500, 1);
+  flowArrow.style.opacity = 0.2 + flowIntensity * 0.8;
+
+  // Water recovery
+  const volB3 = (state.hB3 - 18) * BASIN_AREA;
+  const volB2 = (state.hB2 - 10) * BASIN_AREA;
+  const volB1 = (state.hB1 - 4)  * BASIN_AREA;
+  const volRec = Math.max(volB3,0) + Math.max(volB2,0) + Math.max(volB1,0);
+  const volTotal = (LOCK_H - state.hL) * LOCK_AREA;
+  const pct = volTotal > 100 ? Math.min(volRec / volTotal * 100, 100) : 0;
+  document.getElementById('recovery-pct').textContent = pct.toFixed(1) + '%';
+}
+
+// ── Main loop ────────────────────────────────────────────────────────────────
+let lastTime = null;
+
+function loop(timestamp) {
+  if (!state.running) return;
+  if (!lastTime) lastTime = timestamp;
+  const wallDt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+
+  // Advance simulation by simSpeed × wall time, in small steps
+  const simDt = 1.0;
+  const steps = Math.round(simSpeed * wallDt);
+  for (let i = 0; i < steps && state.running; i++) {
+    step(simDt);
+  }
+
+  drawMain();
+  drawChart();
+  updateUI();
+
+  if (state.running) requestAnimationFrame(loop);
+  else { drawMain(); drawChart(); updateUI(); }
+}
+
+function resetState() {
+  state = {
+    hL: LOCK_H, hB3: 18, hB2: 10, hB1: 4, Q: 0,
+    t: 0, phase: 0, running: false, done: false,
+    tEntry: 0,
+    history: { t: [], hL: [], hB3: [], hB2: [], hB1: [], Q: [] }
+  };
+  lastTime = null;
+  drawMain();
+  drawChart();
+  updateUI();
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', () => {
+  if (state.done) return;
+  state.running = !state.running;
+  const btn = document.getElementById('btn-start');
+  btn.textContent = state.running ? '⏸ PAUSE' : '▶ START';
+  if (state.running) { lastTime = null; requestAnimationFrame(loop); }
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  state.running = false;
+  document.getElementById('btn-start').textContent = '▶ START';
+  resetState();
+});
+
+document.getElementById('cd-slider').addEventListener('input', e => {
+  Cd = parseFloat(e.target.value);
+  document.getElementById('cd-val').textContent = Cd.toFixed(2);
+});
+
+document.getElementById('vt-slider').addEventListener('input', e => {
+  valveTime = parseInt(e.target.value);
+  document.getElementById('vt-val').textContent = valveTime;
+});
+
+document.getElementById('sp-slider').addEventListener('input', e => {
+  simSpeed = parseInt(e.target.value);
+  document.getElementById('sp-val').textContent = simSpeed + '×';
+});
+
+// Init
+resetState();
+</script>
+</body>
+</html>
