@@ -90,7 +90,7 @@ Also defines:
 - `H_sea(t)` — tidal forcing function
 - `valve_area(t, t_entry)` — linear valve ramp
 
-*Authors: Mihika Tyagi (original + final corrected version), Akshita [Last Name] (intermediate rewrite)*
+*Authors: Mihika Tyagi (original + final corrected version), Akshita Padala (intermediate rewrite)*
 
 ---
 
@@ -99,7 +99,7 @@ FSM integration loop. Calls `scipy.solve_ivp` once per phase with event detectio
 
 Key function: `run_lock_cycle()` returns `(t, x, log)` where log records phase entry/exit times.
 
-*Authors: Mihika Tyagi (original + final corrected version), Akshita [Last Name] (intermediate rewrite)*
+*Authors: Mihika Tyagi (original + final corrected version), Akshita Padala(intermediate rewrite)*
 
 ---
 
@@ -241,7 +241,7 @@ python visualize.py
 
 ## Known limitations
 
-1. **Basin geometry simplified** — rectangular basins with no depth limit. Real basins stop filling at a bounded depth. This causes over-recovery (68.7% vs 60%) and slower with-basin cycle time.
-2. **Single equivalent culvert** — model uses one culvert of equivalent area. Real locks use multiple parallel culverts. This affects velocity calculations.
-3. **Gate mechanics not modeled** — gate closing/opening (~3.5 min) is outside model scope. Adding gate overhead brings no-basin timing to within 3.1% of paper.
-4. **Euler integration in visualizer** — real-time visualizer uses forward Euler (dt=1s) for performance. Analysis figures use RK45 via scipy.solve_ivp.
+1. Basin geometry simplified — rectangular basins with no depth limit. Real basins stop filling at a bounded depth. This causes over-recovery (68.7% vs 60%) and slower with-basin cycle time.
+2. Single equivalent culvert — model uses one culvert of equivalent area. Real locks use multiple parallel culverts. This affects velocity calculations.
+3. Gate mechanics not modeled — gate closing/opening (~3.5 min) is outside model scope. Adding gate overhead brings no-basin timing to within 3.1% of paper.
+4. Euler integration in visualizer — real-time visualizer uses forward Euler (dt=1s) for performance. Analysis figures use RK45 via scipy.solve_ivp.
