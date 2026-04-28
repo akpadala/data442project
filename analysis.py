@@ -261,6 +261,116 @@ def plot_pid_comparison(save=False):
     plt.show()
 
 
+# ── Figure 4: Sensitivity — Cd vs total cycle time ───────────────────────────
+
+def plot_sensitivity(save=False):
+    """
+    Sweep discharge coefficient Cd and measure total cycle time.
+    Shows how sensitive results are to this uncertain parameter.
+    """
+    from parameters import CD
+    cd_vals  = np.linspace(0.4, 1.0, 13)
+    eq_times = []
+    for cd in cd_vals:
+        t2, x2, log2 = run_lock_cycle(cd_override=cd)
+        eq_times.append(t2[-1] / 60)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(cd_vals, eq_times, color='#2563EB', lw=2, marker='o', ms=6)
+    ax.axvline(CD, color='#DC2626', ls='--', lw=1.5, label=f'Default Cd = {CD}')
+    ax.set_xlabel('Discharge coefficient Cd', fontsize=11)
+    ax.set_ylabel('Total cycle time (minutes)', fontsize=11)
+    ax.set_title('Sensitivity: Cd vs total lock cycle time', fontsize=12)
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    if save:
+        plt.savefig('fig4_sensitivity.png', dpi=150, bbox_inches='tight')
+    plt.show()
+
+
+# ── Figure 5: Valve timing tradeoff ──────────────────────────────────────────
+
+def plot_valve_tradeoff(save=False):
+    """
+    Sweep valve open time and show tradeoff between cycle speed and peak flow.
+    Faster valve → shorter cycle but higher peak Q (water hammer risk).
+    """
+    import parameters as P
+    vt_vals     = [120, 180, 240, 360, 480]
+    cycle_times = []
+    peak_Qs     = []
+    for vt in vt_vals:
+        t2, x2, log2 = run_lock_cycle(valve_time_override=vt)
+        cycle_times.append(t2[-1] / 60)
+        peak_Qs.append(x2[4].max())
+
+    fig, axes = plt.subplots(2, 1, figsize=(9, 8), sharex=True)
+    fig.suptitle('Valve opening time: speed vs stability tradeoff',
+                 fontsize=13, fontweight='bold')
+
+    axes[0].plot(vt_vals, cycle_times, color='#2563EB', lw=2, marker='o', ms=7)
+    axes[0].axvline(240, color='#DC2626', ls='--', lw=1.5, label='Default (240s)')
+    axes[0].set_ylabel('Total cycle time (min)', fontsize=11)
+    axes[0].set_title('Faster valve → shorter cycle (higher throughput)', fontsize=10)
+    axes[0].legend(fontsize=9)
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(vt_vals, peak_Qs, color='#7C3AED', lw=2, marker='o', ms=7)
+    axes[1].axvline(240, color='#DC2626', ls='--', lw=1.5, label='Default (240s)')
+    axes[1].axhline(8.0 * P.CULVERT_AREA, color='#F59E0B', ls=':', lw=1.5,
+                    label='Max velocity spec (8 m/s)')
+    axes[1].set_xlabel('Valve open time (s)', fontsize=11)
+    axes[1].set_ylabel('Peak Q (m³/s)', fontsize=11)
+    axes[1].set_title('Faster valve → higher peak flow (water hammer risk)', fontsize=10)
+    axes[1].legend(fontsize=9)
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save:
+        plt.savefig('fig5_pid_tradeoff.png', dpi=150, bbox_inches='tight')
+    plt.show()
+
+
+# ── Figure 6: Culvert back-calculation from velocity spec ────────────────────
+
+def plot_culvert_backCalc(x, save=False):
+    """
+    Back-calculate implied culvert diameter from published velocity specs
+    (Calvo Gobbetti 2013: V_avg = 4.7 m/s, V_max = 8.0 m/s).
+    """
+    Q_peak = x[4].max()
+    V_avg  = 4.7   # m/s — average velocity spec from paper
+    V_max  = 8.0   # m/s — minimum flow spec from paper
+
+    n_range    = np.arange(2, 12)
+    D_from_avg = [2 * np.sqrt(Q_peak / V_avg / n / np.pi) for n in n_range]
+    D_from_max = [2 * np.sqrt(Q_peak / V_max / n / np.pi) for n in n_range]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(n_range, D_from_avg, color='#2563EB', lw=2, marker='o', ms=5,
+            label=f'V_avg = {V_avg} m/s (typical flow)')
+    ax.plot(n_range, D_from_max, color='#DC2626', lw=2, marker='s', ms=5,
+            label=f'V_max = {V_max} m/s (minimum spec)')
+    ax.axhline(7.0, color='#059669', ls='--', lw=1.5,
+               label='Current assumption D = 7.0 m')
+    ax.fill_between(n_range, D_from_max, D_from_avg,
+                    alpha=0.1, color='#2563EB', label='Feasible range')
+    ax.set_xlabel('Number of culverts per lock chamber', fontsize=11)
+    ax.set_ylabel('Implied culvert diameter (m)', fontsize=11)
+    ax.set_title(
+        f'Culvert diameter back-calculated from velocity spec\n'
+        f'(Peak Q = {Q_peak:.0f} m³/s from simulation — Calvo Gobbetti 2013)',
+        fontsize=12)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(2, 11)
+    plt.tight_layout()
+    if save:
+        plt.savefig('fig6_culvert_backCalc.png', dpi=150, bbox_inches='tight')
+    plt.show()
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -269,7 +379,21 @@ if __name__ == "__main__":
 
     print("\nGenerating figures...")
     plot_water_levels(t, x, log, save=True)
-    plot_phase_portrait(t, x, log, save=True)
-    plot_water_recovery(x, log, save=True)
+    print("  Fig 1 saved: water_levels.png")
 
-    print("Done. Figures saved.")
+    plot_phase_portrait(t, x, log, save=True)
+    print("  Fig 2 saved: phase_portrait.png")
+
+    plot_water_recovery(x, log, save=True)
+    print("  Fig 3 saved: water_recovery.png")
+
+    plot_sensitivity(save=True)
+    print("  Fig 4 saved: fig4_sensitivity.png")
+
+    plot_valve_tradeoff(save=True)
+    print("  Fig 5 saved: fig5_pid_tradeoff.png")
+
+    plot_culvert_backCalc(x, save=True)
+    print("  Fig 6 saved: fig6_culvert_backCalc.png")
+
+    print("\nDone. All 6 figures saved.")
