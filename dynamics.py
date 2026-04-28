@@ -8,12 +8,12 @@ Each phase specifies:
   - y_idx_fill   : index in y to fill (same as target, or -1 for sea)
 """
 import numpy as np
+import parameters as P
 from parameters import (
     G, RHO, INERTANCE, RESISTANCE,
     LOCK_AREA, BASIN_AREA,
-    A_VALVE_MAX, VALVE_OPEN_TIME,
+    A_VALVE_MAX,
     TIDE_AMPLITUDE, TIDE_OMEGA, TIDE_MEAN, TIDE_PHASE,
-    CD
 )
 
 WSB_DRAIN_1 = 'WSB drain 1 (lock→basin 3)'
@@ -36,16 +36,16 @@ def H_sea(t):
 
 def valve_area(t, t_entry):
     elapsed = t - t_entry
-    return A_VALVE_MAX * float(np.clip(elapsed / VALVE_OPEN_TIME, 0.0, 1.0))
+    return P.A_VALVE_MAX * float(np.clip(elapsed / P.VALVE_OPEN_TIME, 0.0, 1.0))
 
 def system_dynamics(t, y, phase_idx, t_entry):
     """
     phase_idx: 0,1,2,3 corresponding to PHASE_CONFIG
+    Reads P.CD and P.VALVE_OPEN_TIME dynamically so overrides work correctly.
     """
     h_l, h_b3, h_b2, h_b1, Q = y
     target_idx, fill_idx = PHASE_CONFIG[phase_idx]
 
-    # Target level
     if target_idx == -1:
         h_target = H_sea(t)
     else:
@@ -54,8 +54,7 @@ def system_dynamics(t, y, phase_idx, t_entry):
     delta_h = max(h_l - h_target, 0.0)
     Av = valve_area(t, t_entry)
 
-    # Water hammer ODE (FIXED: RHO*G scaling, valve ramp)
-    driving  = RHO * G * delta_h * CD * (Av / A_VALVE_MAX)
+    driving  = RHO * G * delta_h * P.CD * (Av / P.A_VALVE_MAX)
     friction = RESISTANCE * Q
     dQdt     = (driving - friction) / INERTANCE
 
