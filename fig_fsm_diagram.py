@@ -107,7 +107,7 @@ STATES = [
         'label' : 'GATE\nOPENING',
         'color' : COLORS['mechanical'],
         'odes'  : [],
-        'entry' : 'Gates open\n(requires ΔP ≈ 0)',
+        'entry' : 'Gates swing open',
         'type'  : 'mechanical',
     },
     {
@@ -156,7 +156,7 @@ ax.text(10, 10.15,
 
 # ── Box geometry ──────────────────────────────────────────────────────────────
 BOX_W_MECH = 1.9    # mechanical state box width
-BOX_H_MECH = 1.2    # mechanical state box height
+BOX_H_MECH = 1.5    # mechanical state box height (increased for text clearance)
 BOX_W_HYD  = 2.6    # hydraulic state box width
 BOX_H_HYD  = 3.8    # hydraulic state box height (needs room for ODEs)
 ROW1_Y     = 5.2    # y center of top row
@@ -231,8 +231,8 @@ def draw_state_box(cx, cy, state, row='top'):
                     color=COLORS['ode_text'], zorder=4)
 
     else:
-        # Entry action for mechanical states
-        ax.text(cx, cy - 0.05, state['entry'],
+        # Entry action for mechanical states — sit in lower half of box
+        ax.text(cx, cy - 0.22, state['entry'],
                 ha='center', va='center', fontsize=7.5,
                 color='#475569', style='italic', zorder=4,
                 multialignment='center')
@@ -314,39 +314,39 @@ ax.text(x_fd + 0.22, (y_fd_bot + y_go_top) / 2,
 x_go_right = BOT_X[0] + BOX_W_MECH / 2
 x_ve_left  = BOT_X[1] - BOX_W_MECH / 2
 draw_arrow_h(x_go_right, x_ve_left, ROW2_Y,
-             TRANSITIONS[6], label_y_offset=0.22)
+             r'$\Delta P \approx 0$', label_y_offset=0.22)
 
 
 # ── Legend ────────────────────────────────────────────────────────────────────
 legend_x = 0.25
-legend_y = 3.5
-ax.text(legend_x, legend_y + 0.4, 'Legend', fontsize=9,
+legend_y = 4.2   # raised from 3.5 to give more vertical room
+ax.text(legend_x, legend_y + 0.35, 'Legend', fontsize=9,
         fontweight='bold', color=COLORS['text'])
 
 legend_items = [
-    (COLORS['mechanical'], 'Mechanical state\n(no ODEs active)'),
+    (COLORS['mechanical'], 'Mechanical state (no ODEs active)'),
     (COLORS['wsb1'],       'WSB Drain 1 — Lock → Basin 3'),
     (COLORS['wsb2'],       'WSB Drain 2 — Lock → Basin 2'),
     (COLORS['wsb3'],       'WSB Drain 3 — Lock → Basin 1'),
-    (COLORS['final'],      'Final Drain — Lock → Sea\n(tidal forcing)'),
+    (COLORS['final'],      'Final Drain — Lock → Sea (tidal forcing)'),
 ]
 
 for k, (col, lbl) in enumerate(legend_items):
-    yy = legend_y - 0.02 - k * 0.58
-    rect = FancyBboxPatch((legend_x, yy - 0.18), 0.28, 0.36,
+    yy = legend_y - 0.05 - k * 0.52   # tighter spacing, single-line labels
+    rect = FancyBboxPatch((legend_x, yy - 0.16), 0.25, 0.32,
                            boxstyle='round,pad=0.04',
                            facecolor=col, edgecolor='none',
                            alpha=0.85, zorder=3)
     ax.add_patch(rect)
-    ax.text(legend_x + 0.38, yy, lbl,
+    ax.text(legend_x + 0.35, yy, lbl,
             ha='left', va='center', fontsize=7.5, color=COLORS['text'])
 
 # Condition arrow legend
-yy = legend_y - 0.02 - len(legend_items) * 0.58 - 0.1
-ax.annotate('', xy=(legend_x + 0.28, yy), xytext=(legend_x, yy),
+yy = legend_y - 0.05 - len(legend_items) * 0.52 - 0.15
+ax.annotate('', xy=(legend_x + 0.25, yy), xytext=(legend_x, yy),
             arrowprops=dict(arrowstyle='->', color=COLORS['condition'], lw=1.5))
-ax.text(legend_x + 0.38, yy,
-        'Transition condition\n(mathematical expression)',
+ax.text(legend_x + 0.35, yy,
+        'Transition condition (mathematical expression)',
         ha='left', va='center', fontsize=7.5, color=COLORS['condition'])
 
 # ODE note box

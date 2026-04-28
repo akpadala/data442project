@@ -193,7 +193,7 @@ print("Fig 7 (Bode plot) saved.")
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIG 8: Step response of G2(s)
 # ═══════════════════════════════════════════════════════════════════════════════
-t_step = np.linspace(0, min(5 * L_in/R_in, 7200), 2000)   # 5 time constants or 2hr
+t_step = np.linspace(0, min(5 * L_in/R_in, 27000), 2000)  # 5τ or 450 min — full decay envelope visible
 t_out, y_out = signal.step(G2, T=t_step)
 
 fig, ax = plt.subplots(figsize=(9, 5))
@@ -329,5 +329,6 @@ else:
     print("Warning: FINAL_DRAIN segment not found in simulation log.")
 
 print()
+print("Task 1 complete.")
 print(f"  G1(s): pole at s = -{R_in/L_in:.4f}, τ = {L_in/R_in:.0f}s")
 print(f"  G2(s): ωn = {wn:.4e} rad/s, ζ = {zeta:.4f}, regime = {'overdamped' if zeta>=1 else 'underdamped'}")
