@@ -280,9 +280,12 @@ _ca['valve_bg']   = ax_cross.add_patch(
     Rectangle((9.5, 0.2), 0.3, 2.5, facecolor='#E2E8F0', edgecolor='#CBD5E1', lw=1, zorder=4))
 _ca['valve_fill'] = ax_cross.add_patch(
     Rectangle((9.5, 0.2), 0.3, 0, facecolor='#7C3AED', alpha=0.75, zorder=5))
-_ca['valve_txt']  = ax_cross.text(9.85, 0.8, 'Valve\n0%',
-                                   ha='right', va='bottom', fontsize=7,
-                                   color='#64748B', zorder=6)
+# Label sits ABOVE the bar — never overlaps fill
+_ca['valve_txt']  = ax_cross.text(9.65, 3.0, 'Valve\n0%',
+                                   ha='center', va='bottom', fontsize=7,
+                                   color='#4C1D95', fontweight='bold', zorder=6,
+                                   bbox=dict(facecolor='white', edgecolor='#CBD5E1',
+                                             boxstyle='round,pad=0.2', alpha=1.0))
 _ca['done_txt']   = ax_cross.text(5.0, 14, '', ha='center', va='center',
                                    fontsize=20, fontweight='bold',
                                    color='#059669', alpha=0, rotation=15, zorder=10)
